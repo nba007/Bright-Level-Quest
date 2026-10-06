@@ -1,8 +1,9 @@
-name: Deploy to GitHub Pages
+name: Deploy game to GitHub Pages
 
 on:
   push:
-    branches: [ main ] # Change to 'master' if your default branch is master
+    branches: [main]
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -10,7 +11,7 @@ permissions:
   id-token: write
 
 concurrency:
-  group: 'pages'
+  group: pages
   cancel-in-progress: true
 
 jobs:
@@ -20,47 +21,29 @@ jobs:
       url: ${{ steps.deployment.outputs.page_url }}
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      # Translates the Node.js Version 24 requirement
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - uses: actions/setup-node@v7
         with:
           node-version: 24
+          cache: pnpm
 
-      # Setup pnpm for your workspace structure
-      - name: Install pnpm
-        uses: pnpm/action-setup@v3
-        with:
-          version: 9 # Adjust major version to match your local setting if needed
+      - run: pnpm install --frozen-lockfile
 
-      # Translates: pnpm install --frozen-lockfile
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
-
-      # Translates the custom Build Command and sets environment variables
-      - name: Build Project
-        run: pnpm --filter @workspace/bright-3d-adventure run build
-        env:
-          PORT: 5173
-          BASE_PATH: /
-
-      # Translates Vercel's SPA rewrites for GitHub Pages static environments
-      # Adds a boilerplate 404 handler duplicating /index.html logic
-      - name: Inject GitHub Pages SPA Router Fallback
+      - name: Build game
         run: |
-          cp artifacts/bright-3d-adventure/dist/public/index.html artifacts/bright-3d-adventure/dist/public/404.html
+          REPO_NAME="${GITHUB_REPOSITORY#*/}"
+          PORT=5173 BASE_PATH="/${REPO_NAME}/" pnpm --filter @workspace/bright-3d-adventure run build
 
-      - name: Setup Pages
-        uses: actions/configure-pages@v5
-
-      # Translates Output Directory: artifacts/bright-3d-adventure/dist/public
-      - name: Upload artifact
-        uses: actions/upload-pages-artifact@v3
+      - uses: actions/configure-pages@v6
+      - uses: actions/upload-pages-artifact@v5
         with:
           path: artifacts/bright-3d-adventure/dist/public
 
-      - name: Deploy to GitHub Pages
+      - name: Deploy
         id: deployment
-        uses: actions/deploy-pages@v4
+        uses: actions/deploy-pages@v5
